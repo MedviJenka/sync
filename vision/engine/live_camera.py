@@ -1,19 +1,13 @@
 """Live OpenCV camera runner for the biometrics overlay."""
 
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Optional, Sequence
+from vision.engine.exceptions import CVZoneUnavailableError, OpenCVUnavailableError, PySimVerseUnavailableError
 
 
 DEFAULT_WINDOW_TITLE = "Live Biometrics Overlay"
+
 DEFAULT_OVERLAY_BGR = (255, 255, 0)
-
-
-class OpenCVUnavailableError(RuntimeError):
-    """Raised when OpenCV is required for live camera support but unavailable."""
-
-
-class CVZoneUnavailableError(RuntimeError):
-    """Raised when CVZone is required for stylized overlay rendering but unavailable."""
 
 
 def require_cv2() -> Any:
@@ -58,14 +52,21 @@ def require_hand_detector() -> Any:
     return HandDetector
 
 
-def run_live_camera(camera_index: int = 0, window_title: str = DEFAULT_WINDOW_TITLE) -> None:
-    """Open a camera, detect faces, and render a low-clutter tracking overlay."""
+def run_live_camera(
+    camera_index: int = 0,
+    window_title: str = DEFAULT_WINDOW_TITLE,
+    *,
+    enable_drone_control: bool = True,
+) -> None:
+    """Open a camera, detect hands/faces, and control PySimVerse from gestures."""
 
     cv2 = require_cv2()
     cvzone = require_cvzone()
     overlay = _load_overlay_api()
     face_cascade = _load_cascade(cv2, "haarcascade_frontalface_default.xml")
     hand_detector = _load_hand_detector()
+    drone_controller = _load_drone_gesture_controller() if enable_drone_control else None
+
 
     capture = cv2.VideoCapture(camera_index)
     if not capture.isOpened():
@@ -94,6 +95,8 @@ def run_live_camera(camera_index: int = 0, window_title: str = DEFAULT_WINDOW_TI
             for hand in hands:
                 detection = _to_detected_hand(hand, hand_detector.fingersUp(hand), overlay)
                 primitives = overlay.build_hand_gesture_overlay(detection)
+                if drone_controller is not None:
+                    drone_controller.handle_detection(detection)
                 _draw_overlay(cv2, cvzone, frame, primitives)
 
             cv2.imshow(window_title, frame)
@@ -114,6 +117,19 @@ def _load_overlay_api() -> Any:
 def _load_hand_detector() -> Any:
     hand_detector = require_hand_detector()
     return hand_detector(maxHands=2, detectionCon=0.6, minTrackCon=0.5)
+
+
+def _load_drone_gesture_controller() -> Any:
+    try:
+        from pysimverse import Drone
+    except ImportError as error:
+        raise PySimVerseUnavailableError("Install pysimverse to enable drone gesture control.") from error
+
+    from .drone_control import DroneGestureController
+
+    drone = Drone()
+    drone.connect()
+    return DroneGestureController(drone)
 
 
 def _load_cascade(cv2: Any, filename: str) -> Any:
@@ -208,7 +224,16 @@ def _draw_primitive(cv2: Any, cvzone: Any, frame: Any, primitive: Any) -> None:
         cv2.line(frame, start, end, color, thickness)
 
 
-def _draw_label(cv2: Any, frame: Any, text: str, origin: tuple[int, int], color: tuple[int, ...], thickness: int, font_scale: float) -> None:
+def _draw_label(
+    cv2: Any,
+    frame: Any,
+    text: Optional[str],
+    origin: tuple[int, int],
+    color: tuple[int, ...],
+    thickness: int,
+    font_scale: float
+) -> None:
+
     font = getattr(cv2, "FONT_HERSHEY_SIMPLEX", 0)
     shadow_origin = (origin[0] + 1, origin[1] + 1)
     shadow_thickness = max(thickness + 1, 2)
@@ -223,6 +248,7 @@ def _point_to_xy(point: Any) -> tuple[int, int]:
 __all__ = (
     "CVZoneUnavailableError",
     "OpenCVUnavailableError",
+    "PySimVerseUnavailableError",
     "require_cv2",
     "require_cvzone",
     "require_hand_detector",

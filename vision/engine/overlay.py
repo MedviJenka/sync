@@ -1,3 +1,4 @@
+import math
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Optional
@@ -5,6 +6,20 @@ from typing import Optional
 NEON_CYAN = (255, 255, 0)
 NEON_MAGENTA = (255, 0, 255)
 NEON_BLUE = (255, 160, 0)
+
+FINGER_NAMES = ("THUMB", "INDEX", "MIDDLE", "RING", "PINKY")
+NAMED_HAND_GESTURES = {
+    (1, 1, 1, 1, 1): "PALM",
+    (0, 0, 0, 0, 0): "FIST",
+    (1, 0, 0, 0, 0): "THUMB",
+    (0, 1, 0, 0, 0): "POINT",
+    (0, 1, 1, 0, 0): "PEACE",
+    (1, 0, 0, 0, 1): "SHAKA",
+    (0, 1, 0, 0, 1): "HORNS",
+    (1, 1, 0, 0, 0): "FINGER GUN",
+    (1, 1, 0, 0, 1): "SPIDER-MAN",
+}
+PINCH_MAX_PALM_RATIO = 0.22
 
 
 @dataclass(frozen=True)
@@ -78,7 +93,7 @@ class OverlayPrimitive:
     points:        tuple[Point, ...]
     color:         tuple[int, int, int] = NEON_CYAN
     thickness:     int                  = 2
-    accent_color:  Optional[tuple[int]] = None
+    accent_color:  Optional[tuple[int, ...]] = None
     corner_length: int                  = 0
     label:         Optional[str]        = None
     radius:        int                  = 4
@@ -125,27 +140,49 @@ def build_biometrics_overlay(detection: DetectedFace) -> tuple[OverlayPrimitive,
     )
 
 
-def classify_hand_gesture(fingers_up: Iterable[int]) -> str:
+def classify_hand_gesture(fingers_up: Iterable[int], landmarks: Iterable[Point] = ()) -> str:
+    fingers = _validate_fingers_up(fingers_up)
+    if _is_pinching(tuple(landmarks)):
+        return "PINCH"
+
+    return NAMED_HAND_GESTURES.get(fingers, _finger_state_label(fingers))
+
+
+def _validate_fingers_up(fingers_up: Iterable[int]) -> tuple[int, int, int, int, int]:
     fingers = tuple(int(value) for value in fingers_up)
     if len(fingers) != 5:
         raise ValueError("fingers_up must contain exactly five values")
     if any(value not in (0, 1) for value in fingers):
         raise ValueError("fingers_up values must be 0 or 1")
+    return fingers
 
-    named_gestures = {
-        (1, 1, 1, 1, 1): "PALM",
-        (0, 0, 0, 0, 0): "FIST",
-        (0, 1, 0, 0, 0): "POINT",
-        (0, 1, 1, 0, 0): "PEACE",
-        (1, 0, 0, 0, 0): "THUMB",
-    }
-    return named_gestures.get(fingers, f"{sum(fingers)} FINGERS")
+
+def _finger_state_label(fingers: tuple[int, int, int, int, int]) -> str:
+    return "+".join(name for name, is_up in zip(FINGER_NAMES, fingers) if is_up) + " UP"
+
+
+def _is_pinching(landmarks: tuple[Point, ...]) -> bool:
+    if len(landmarks) < 21:
+        return False
+
+    thumb_tip = landmarks[4]
+    index_tip = landmarks[8]
+    wrist = landmarks[0]
+    middle_mcp = landmarks[9]
+    palm_width = _distance(landmarks[5], landmarks[17])
+    palm_length = _distance(wrist, middle_mcp)
+    palm_scale = max(palm_width, palm_length, 1.0)
+    return _distance(thumb_tip, index_tip) <= palm_scale * PINCH_MAX_PALM_RATIO
+
+
+def _distance(first: Point, second: Point) -> float:
+    return math.hypot(first.x - second.x, first.y - second.y)
 
 
 def build_hand_gesture_overlay(detection: DetectedHand) -> tuple[OverlayPrimitive, ...]:
     palm = detection.palm
     label_anchor = Point(palm.x, max(12, palm.y - 6))
-    gesture = classify_hand_gesture(detection.fingers_up)
+    gesture = classify_hand_gesture(detection.fingers_up, detection.landmarks)
     label_primitives = (
         OverlayPrimitive(
             key="hand_gesture_label",

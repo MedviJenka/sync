@@ -66,6 +66,53 @@ class BiometricsOverlayTest(unittest.TestCase):
         self.assertEqual(classify_hand_gesture((0, 0, 0, 0, 0)), "FIST")
         self.assertEqual(classify_hand_gesture((0, 1, 0, 0, 0)), "POINT")
         self.assertEqual(classify_hand_gesture((0, 1, 1, 0, 0)), "PEACE")
+        self.assertEqual(classify_hand_gesture((1, 0, 0, 0, 1)), "SHAKA")
+        self.assertEqual(classify_hand_gesture((0, 1, 0, 0, 1)), "HORNS")
+        self.assertEqual(classify_hand_gesture((1, 1, 0, 0, 0)), "FINGER GUN")
+        self.assertEqual(classify_hand_gesture((0, 0, 1, 0, 1)), "MIDDLE+PINKY UP")
+
+    def test_classifies_every_finger_state_with_a_distinct_label(self):
+        labels = {
+            classify_hand_gesture(
+                (
+                    (mask >> 4) & 1,
+                    (mask >> 3) & 1,
+                    (mask >> 2) & 1,
+                    (mask >> 1) & 1,
+                    mask & 1,
+                )
+            )
+            for mask in range(32)
+        }
+
+        self.assertEqual(len(labels), 32)
+        self.assertNotIn("2 FINGERS", labels)
+
+    def test_classifies_pinching_from_thumb_and_index_landmarks(self):
+        landmarks = [Point(x=60, y=120) for _ in range(21)]
+        landmarks[0] = Point(x=60, y=120)
+        landmarks[4] = Point(x=72, y=62)
+        landmarks[8] = Point(x=75, y=64)
+        landmarks[9] = Point(x=80, y=80)
+
+        self.assertEqual(classify_hand_gesture((1, 1, 0, 0, 0), landmarks), "PINCH")
+
+    def test_hand_overlay_uses_landmarks_for_pinch_label(self):
+        landmarks = [Point(x=60, y=120) for _ in range(21)]
+        landmarks[0] = Point(x=60, y=120)
+        landmarks[4] = Point(x=72, y=62)
+        landmarks[8] = Point(x=75, y=64)
+        landmarks[9] = Point(x=80, y=80)
+        detection = DetectedHand(
+            palm=Rect(x=50, y=70, width=60, height=50),
+            fingers_up=(1, 1, 0, 0, 0),
+            landmarks=tuple(landmarks),
+        )
+
+        primitives = build_hand_gesture_overlay(detection)
+        by_key = {primitive.key: primitive for primitive in primitives}
+
+        self.assertEqual(by_key["hand_gesture_label"].label, "PINCH")
 
     def test_builds_finger_and_palm_line_primitives_from_landmarks(self):
         landmarks = tuple(

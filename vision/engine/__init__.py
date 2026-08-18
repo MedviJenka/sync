@@ -1,4 +1,5 @@
 from .recognition import FaceRecognitionEngine, RecognitionResult
+from .drone_control import DroneGestureController, drone_command_from_hand
 from .overlay import (
     NEON_BLUE,
     NEON_CYAN,
@@ -16,6 +17,8 @@ from .overlay import (
 __all__ = (
     "FaceRecognitionEngine",
     "RecognitionResult",
+    "DroneGestureController",
+    "drone_command_from_hand",
     "NEON_BLUE",
     "NEON_CYAN",
     "NEON_MAGENTA",
