@@ -1,6 +1,6 @@
 import unittest
 
-from vision.engine import (
+from drone.vision.engine import (
     DetectedFace,
     DetectedHand,
     NEON_BLUE,
@@ -10,10 +10,11 @@ from vision.engine import (
     Point,
     Rect,
     build_biometrics_overlay,
+    build_drone_status_overlay,
     build_hand_gesture_overlay,
     classify_hand_gesture,
 )
-from vision.engine.live_camera import (
+from drone.vision.engine.live_camera import (
     CVZoneUnavailableError,
     OpenCVUnavailableError,
     _draw_overlay,
@@ -114,6 +115,15 @@ class BiometricsOverlayTest(unittest.TestCase):
 
         self.assertEqual(by_key["hand_gesture_label"].label, "PINCH")
 
+    def test_drone_status_overlay_explains_disarmed_state(self):
+        primitives = build_drone_status_overlay("DISARMED - PINCH TO ARM")
+        by_key = {primitive.key: primitive for primitive in primitives}
+
+        self.assertEqual(set(by_key), {"drone_status_label"})
+        self.assertEqual(by_key["drone_status_label"].points, (Point(x=12, y=24),))
+        self.assertEqual(by_key["drone_status_label"].label, "DISARMED - PINCH TO ARM")
+        self.assertEqual(by_key["drone_status_label"].color, NEON_MAGENTA)
+
     def test_builds_finger_and_palm_line_primitives_from_landmarks(self):
         landmarks = tuple(
             Point(x=x, y=y)
@@ -189,7 +199,7 @@ class BiometricsOverlayTest(unittest.TestCase):
             landmarks[index] = point
         hand = {"bbox": (30, 50, 100, 130), "lmList": landmarks}
 
-        detection = _to_detected_hand(hand, (1, 1, 1, 1, 1), overlay=__import__("vision.engine", fromlist=[""]))
+        detection = _to_detected_hand(hand, (1, 1, 1, 1, 1), overlay=__import__("drone.vision.engine", fromlist=[""]))
 
         self.assertEqual(detection.palm, Rect(x=42, y=70, width=50, height=50))
         self.assertEqual(detection.landmarks[17], Point(x=92, y=108))

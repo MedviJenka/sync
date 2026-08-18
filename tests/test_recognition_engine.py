@@ -1,7 +1,6 @@
 import math
 import unittest
-
-from vision.engine import FaceRecognitionEngine, RecognitionResult
+from drone.vision.engine import FaceRecognitionEngine, RecognitionResult
 
 
 class FaceRecognitionEngineTest(unittest.TestCase):
