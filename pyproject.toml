@@ -1,0 +1,23 @@
+[project]
+name = "drone"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { email = "medvijenia@icloud.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "cvzone>=2,<3",
+    "opencv-python>=4.10,<5",
+    "mediapipe>=0.10,<1",
+    "pytest>=9.1.1",
+    "pytest-async>=0.1.1",
+]
+
+[project.scripts]
+drone = "drone:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
