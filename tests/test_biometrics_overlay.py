@@ -36,7 +36,7 @@ class BiometricsOverlayTest(unittest.TestCase):
         primitives = build_biometrics_overlay(detection)
         by_key = {primitive.key: primitive for primitive in primitives}
 
-        self.assertEqual(set(by_key), {"face_hud_box", "face_label", "face_label_leader", "face_baseline"})
+        self.assertEqual(set(by_key), {"face_hud_box", "face_label", "face_baseline"})
         self.assertFalse(
             {"left_eye", "right_eye", "nose", "nose_reticle", "facial_axis", "face_scanline", "status_panel"}
             & set(by_key)
@@ -49,7 +49,7 @@ class BiometricsOverlayTest(unittest.TestCase):
         self.assertEqual(by_key["face_label"].points, (Point(x=10, y=14),))
         self.assertEqual(by_key["face_label"].label, "TRACK")
         self.assertEqual(by_key["face_label"].font_scale, 0.45)
-        self.assertEqual(by_key["face_label_leader"].points, (Point(x=10, y=14), Point(x=24, y=20)))
+        self.assertNotIn("face_label_leader", by_key)
         self.assertEqual(by_key["face_baseline"].points, (Point(x=35, y=146), Point(x=85, y=146)))
 
     def test_overlay_ignores_missing_eye_data_without_guessing_internal_markers(self):
@@ -58,7 +58,7 @@ class BiometricsOverlayTest(unittest.TestCase):
         primitives = build_biometrics_overlay(detection)
         by_key = {primitive.key: primitive for primitive in primitives}
 
-        self.assertEqual(set(by_key), {"face_hud_box", "face_label", "face_label_leader", "face_baseline"})
+        self.assertEqual(set(by_key), {"face_hud_box", "face_label", "face_baseline"})
         self.assertEqual(by_key["face_label"].label, "TRACK")
 
     def test_classifies_common_hand_gestures_from_finger_state(self):
@@ -66,6 +66,53 @@ class BiometricsOverlayTest(unittest.TestCase):
         self.assertEqual(classify_hand_gesture((0, 0, 0, 0, 0)), "FIST")
         self.assertEqual(classify_hand_gesture((0, 1, 0, 0, 0)), "POINT")
         self.assertEqual(classify_hand_gesture((0, 1, 1, 0, 0)), "PEACE")
+        self.assertEqual(classify_hand_gesture((1, 0, 0, 0, 1)), "SHAKA")
+        self.assertEqual(classify_hand_gesture((0, 1, 0, 0, 1)), "HORNS")
+        self.assertEqual(classify_hand_gesture((1, 1, 0, 0, 0)), "FINGER GUN")
+        self.assertEqual(classify_hand_gesture((0, 0, 1, 0, 1)), "MIDDLE+PINKY UP")
+
+    def test_classifies_every_finger_state_with_a_distinct_label(self):
+        labels = {
+            classify_hand_gesture(
+                (
+                    (mask >> 4) & 1,
+                    (mask >> 3) & 1,
+                    (mask >> 2) & 1,
+                    (mask >> 1) & 1,
+                    mask & 1,
+                )
+            )
+            for mask in range(32)
+        }
+
+        self.assertEqual(len(labels), 32)
+        self.assertNotIn("2 FINGERS", labels)
+
+    def test_classifies_pinching_from_thumb_and_index_landmarks(self):
+        landmarks = [Point(x=60, y=120) for _ in range(21)]
+        landmarks[0] = Point(x=60, y=120)
+        landmarks[4] = Point(x=72, y=62)
+        landmarks[8] = Point(x=75, y=64)
+        landmarks[9] = Point(x=80, y=80)
+
+        self.assertEqual(classify_hand_gesture((1, 1, 0, 0, 0), landmarks), "PINCH")
+
+    def test_hand_overlay_uses_landmarks_for_pinch_label(self):
+        landmarks = [Point(x=60, y=120) for _ in range(21)]
+        landmarks[0] = Point(x=60, y=120)
+        landmarks[4] = Point(x=72, y=62)
+        landmarks[8] = Point(x=75, y=64)
+        landmarks[9] = Point(x=80, y=80)
+        detection = DetectedHand(
+            palm=Rect(x=50, y=70, width=60, height=50),
+            fingers_up=(1, 1, 0, 0, 0),
+            landmarks=tuple(landmarks),
+        )
+
+        primitives = build_hand_gesture_overlay(detection)
+        by_key = {primitive.key: primitive for primitive in primitives}
+
+        self.assertEqual(by_key["hand_gesture_label"].label, "PINCH")
 
     def test_builds_finger_and_palm_line_primitives_from_landmarks(self):
         landmarks = tuple(
@@ -113,10 +160,10 @@ class BiometricsOverlayTest(unittest.TestCase):
                 "hand_ring",
                 "hand_pinky",
                 "hand_gesture_label",
-                "hand_gesture_leader",
                 "hand_center_dot",
             },
         )
+        self.assertNotIn("hand_gesture_leader", by_key)
         self.assertNotIn("hand_palm_box", by_key)
         self.assertEqual(
             by_key["hand_palm_outline"].points,
