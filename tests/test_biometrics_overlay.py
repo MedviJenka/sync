@@ -36,7 +36,7 @@ class BiometricsOverlayTest(unittest.TestCase):
         primitives = build_biometrics_overlay(detection)
         by_key = {primitive.key: primitive for primitive in primitives}
 
-        self.assertEqual(set(by_key), {"face_hud_box", "face_label", "face_label_leader", "face_baseline"})
+        self.assertEqual(set(by_key), {"face_hud_box", "face_label", "face_baseline"})
         self.assertFalse(
             {"left_eye", "right_eye", "nose", "nose_reticle", "facial_axis", "face_scanline", "status_panel"}
             & set(by_key)
@@ -49,7 +49,7 @@ class BiometricsOverlayTest(unittest.TestCase):
         self.assertEqual(by_key["face_label"].points, (Point(x=10, y=14),))
         self.assertEqual(by_key["face_label"].label, "TRACK")
         self.assertEqual(by_key["face_label"].font_scale, 0.45)
-        self.assertEqual(by_key["face_label_leader"].points, (Point(x=10, y=14), Point(x=24, y=20)))
+        self.assertNotIn("face_label_leader", by_key)
         self.assertEqual(by_key["face_baseline"].points, (Point(x=35, y=146), Point(x=85, y=146)))
 
     def test_overlay_ignores_missing_eye_data_without_guessing_internal_markers(self):
@@ -58,7 +58,7 @@ class BiometricsOverlayTest(unittest.TestCase):
         primitives = build_biometrics_overlay(detection)
         by_key = {primitive.key: primitive for primitive in primitives}
 
-        self.assertEqual(set(by_key), {"face_hud_box", "face_label", "face_label_leader", "face_baseline"})
+        self.assertEqual(set(by_key), {"face_hud_box", "face_label", "face_baseline"})
         self.assertEqual(by_key["face_label"].label, "TRACK")
 
     def test_classifies_common_hand_gestures_from_finger_state(self):
@@ -113,10 +113,10 @@ class BiometricsOverlayTest(unittest.TestCase):
                 "hand_ring",
                 "hand_pinky",
                 "hand_gesture_label",
-                "hand_gesture_leader",
                 "hand_center_dot",
             },
         )
+        self.assertNotIn("hand_gesture_leader", by_key)
         self.assertNotIn("hand_palm_box", by_key)
         self.assertEqual(
             by_key["hand_palm_outline"].points,

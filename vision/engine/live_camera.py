@@ -208,15 +208,7 @@ def _draw_primitive(cv2: Any, cvzone: Any, frame: Any, primitive: Any) -> None:
         cv2.line(frame, start, end, color, thickness)
 
 
-def _draw_label(
-    cv2: Any,
-    frame: Any,
-    text: str,
-    origin: tuple[int, int],
-    color: tuple[int, int, int],
-    thickness: int,
-    font_scale: float,
-) -> None:
+def _draw_label(cv2: Any, frame: Any, text: str, origin: tuple[int, int], color: tuple[int, ...], thickness: int, font_scale: float) -> None:
     font = getattr(cv2, "FONT_HERSHEY_SIMPLEX", 0)
     shadow_origin = (origin[0] + 1, origin[1] + 1)
     shadow_thickness = max(thickness + 1, 2)

@@ -117,12 +117,6 @@ def build_biometrics_overlay(detection: DetectedFace) -> tuple[OverlayPrimitive,
             font_scale=0.45,
         ),
         OverlayPrimitive(
-            key="face_label_leader",
-            points=(label_anchor, Point(face.x + corner_length, face.y)),
-            color=NEON_CYAN,
-            thickness=1,
-        ),
-        OverlayPrimitive(
             key="face_baseline",
             points=(Point(face.x + baseline_margin, baseline_y), Point(face.right - baseline_margin, baseline_y)),
             color=NEON_BLUE,
@@ -160,12 +154,6 @@ def build_hand_gesture_overlay(detection: DetectedHand) -> tuple[OverlayPrimitiv
             thickness=1,
             label=gesture,
             font_scale=0.45,
-        ),
-        OverlayPrimitive(
-            key="hand_gesture_leader",
-            points=(label_anchor, palm.center),
-            color=NEON_MAGENTA,
-            thickness=1,
         ),
         OverlayPrimitive(
             key="hand_center_dot",
