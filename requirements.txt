@@ -1,2 +1,3 @@
 opencv-python>=4.10,<5
 cvzone>=2,<3
+pysimverse>=0.14
